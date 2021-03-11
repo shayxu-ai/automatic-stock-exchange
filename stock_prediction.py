@@ -29,7 +29,7 @@ def preprocess():
     print('login respond error_code:'+ lg.error_code)
     print('login respond  error_msg:'+ lg.error_msg)
 
-    rs = bs.query_history_k_data("300721.SZ", "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST", start_date='2010-01-01', end_date='2021-03-09', frequency="d", adjustflag="3")
+    rs = bs.query_history_k_data("600100", "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST", start_date='2010-01-01', end_date='2021-03-09', frequency="d", adjustflag="3")
     print('query_history_k_data respond error_code:'+rs.error_code)
     print('query_history_k_data respond  error_msg:'+rs.error_msg)
 
