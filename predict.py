@@ -61,12 +61,12 @@ def predict():
 
 
 if __name__ == '__main__':
-    stock_code = "sh.600675"        # 股票代码
+    stock_code = "002738.sz"        # 股票代码
     to_date = '2021-03-11'          # 今日日期
     re_download = False             # 重新下载
     re_train = True                 # 是否训练
-    predict_period = 20             # 分析天数
-    history_period = 400            # 预测天数
+    predict_period = 20             # 预测天数
+    history_period = 400            # 分析天数
 
     start_date = '2010-01-01'
     
