@@ -43,3 +43,5 @@
 600: 代表沪市A股，其中601或603也代表沪市A股。
 10. 
 
+## 求打赏[支付宝]
+<img src="https://github.com/shayxu-ai/shayxu-ai.github.io/blob/master/images/alipay.jpg?raw=true" width="150">
