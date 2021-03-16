@@ -1,11 +1,11 @@
 # automatic-stock-exchange
-自动化股票交易系统
+随缘股票交易系统，测不准，预测跌了就少买一手，也不亏。
 
 
 |项目进度|进度|说明|
 | :-: | :-: | :-: |
-| 训练买入模型 | Done | 80%+准确率 |
-| 训练卖出模型 | not start ||
+| 训练买入模型 | Done | 没人能够预测市场 |
+| 训练卖出模型 | not start |预测跌就可以卖|
 | 自动交易 | not start ||
 
 这个股票信息api可以 http://baostock.com/baostock/index.php/%E9%A6%96%E9%A1%B5 (证券宝)
