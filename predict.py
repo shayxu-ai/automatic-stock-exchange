@@ -9,6 +9,8 @@ from genericpath import exists
 import os
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+import csv
 
 import baostock as bs
 import matplotlib. pyplot as plt 
@@ -62,59 +64,78 @@ def predict():
         "Stock {} most likely {} with a {:.2f} percent confidence."
         .format(stock_code, class_names[np.argmax(score)], 100 * np.max(score))
     )
+    with open("predict_output.csv", 'a') as f:
+        wri = csv.writer(f)
+        wri.writerow([stock_code, class_names[np.argmax(score)], 100 * np.max(score)])
+
 
 
 if __name__ == '__main__':
-    stock_code = "600062.SH"        # 股票代码
-    to_date = '2021-01-22'          # 今日日期
-    re_download = False             # 重新下载
+    stock_code_list = pd.read_csv('stock_codes.csv')['code']
+
+    with open("predict_output.csv", 'w') as f:
+        wri = csv.writer(f)
+
+    to_date = '2021-04-18'          # 今日日期
+    re_download = False              # 重新下载
     re_train = True                 # 是否训练
     predict_period = 20             # 预测天数
     history_period = 400            # 分析天数
     epoch = 200
 
     start_date = '2010-01-01'
-    
-    stock_info_path = "stock_info/" + stock_code + ".csv"
-    if not os.path.exists(stock_info_path) or re_download:
         # 从股票宝下载
-        bs.login()
-        rs = bs.query_history_k_data(stock_code, "date, code, open, high, low, close, preclose, volume, amount, adjustflag, turn", start_date=start_date, end_date=to_date, frequency="d", adjustflag="3")
+    bs.login()
+    print("数据下载")
+    for stock_code in tqdm(stock_code_list):
+        stock_info_path = "stock_info/" + stock_code + ".csv"
+        if not os.path.exists(stock_info_path) or re_download:
+            rs = bs.query_history_k_data(stock_code, "date, code, open, high, low, close, preclose, volume, amount, adjustflag, turn", start_date=start_date, end_date=to_date, frequency="d", adjustflag="3")
+            data_list = []
+            while (rs.error_code == '0') & rs.next():  # 获取一条记录，将记录合并在一起
+                data_list.append(rs.get_row_data())
+            result = pd.DataFrame(data_list, columns=rs.fields)
+            result.to_csv(stock_info_path, index=False)
+    bs.logout()
 
-        data_list = []
-        while (rs.error_code == '0') & rs.next():  # 获取一条记录，将记录合并在一起
-            data_list.append(rs.get_row_data())
-        result = pd.DataFrame(data_list, columns=rs.fields)
-        result.to_csv(stock_info_path, index=False)
-        bs.logout()
+    print("预测")
+    for stock_code in tqdm(stock_code_list):
+        stock_info_path = "stock_info/" + stock_code + ".csv"
+        # 读取csv文件
+        stock = pd.read_csv(stock_info_path)
 
-    # 读取csv文件
-    stock = pd.read_csv(stock_info_path)
+        # 准备数据
+        stock['close_nomalized'] = (stock['close']-stock['close'].min())/(stock['close'].max()-stock['close'].min())
+        stock['future_price'] = stock['close_nomalized'].rolling(predict_period).mean()
+        
+        n = len(stock)
+        x = np.array([stock['close_nomalized'][i:i+history_period] for i in range(n-history_period+1)])[20:].reshape(-1, 20, 20)
+        x = x[:, :, :, np.newaxis]
 
-    # 准备数据
-    stock['close_nomalized'] = (stock['close']-stock['close'].min())/(stock['close'].max()-stock['close'].min())
-    stock['future_price'] = stock['close_nomalized'].rolling(predict_period).mean()
-    
-    n = len(stock)
-    x = np.array([stock['close_nomalized'][i:i+history_period] for i in range(n-history_period+1)])[20:].reshape(-1, 20, 20)
-    x = x[:, :, :, np.newaxis]
+        open_ = ((stock['open']-stock['close'].min())/(stock['close'].max()-stock['close'].min())).values[history_period-1:-predict_period]
+        y = stock['future_price'][history_period-1:].values[:-predict_period]
 
-    open_ = ((stock['open']-stock['close'].min())/(stock['close'].max()-stock['close'].min())).values[history_period-1:-predict_period]
-    y = stock['future_price'][history_period-1:].values[:-predict_period]
+        y_decrase = y - open_ <= -0.01
+        y_increase = y - open_ >= 0.01
+        y_equal = np.logical_not(y_decrase+y_increase)
+        y[y_increase] = 2
+        y[y_decrase] = 1
+        y[y_equal] = 0
+        print(pd.DataFrame(y)[0].value_counts())
+        
+        try:
+            x_train, x_test, y_train, y_test = train_test_split(x, y,test_size=0.2,shuffle=True)
 
-    y_decrase = y - open_ <= -0.01
-    y_increase = y - open_ >= 0.01
-    y_equal = np.logical_not(y_decrase+y_increase)
-    y[y_increase] = 2
-    y[y_decrase] = 1
-    y[y_equal] = 0
-    print(pd.DataFrame(y)[0].value_counts())
+            if re_train:
+                train()
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y,test_size=0.2,shuffle=True)
+            predict()
 
-    if re_train:
-        train()
+        except Exception as e:
+            with open("predict_output.csv", 'a') as f:
+                wri = csv.writer(f)
+                wri.writerow([stock_code, e])
 
-    predict()
+        
 
 
