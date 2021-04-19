@@ -13,7 +13,8 @@
 
     2、结果不稳定 =》 多次训练。
 
-    
+    3、使用tensorboard进行超参优化
+
 """
 
 from genericpath import exists
@@ -65,7 +66,6 @@ def predict():
     # model = tf.saved_model.load('saved_model/')
     xi = tf.convert_to_tensor(x[[-1]], tf.float32, name='inputs')
     predictions = model(xi)
-    print(type(predictions))
     score = tf.nn.softmax(predictions[0])
     class_names = {
         0: "持平",
