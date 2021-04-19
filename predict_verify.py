@@ -82,7 +82,7 @@ if __name__ == '__main__':
     with open("predict_output.csv", 'w') as f:
         wri = csv.writer(f)
 
-    for i in range(1):
+    for i in range(30):
         if i != 0 and datetime.datetime.weekday(now + datetime.timedelta(days=i)) in [6, 7]:
             continue
         to_date = (now + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
