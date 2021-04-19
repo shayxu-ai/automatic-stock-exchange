@@ -5,6 +5,17 @@
 # @Filename: predict.py
 
 
+"""
+    1、结果不准确 =》 再加特征，多维CNN
+        # volume 成交量
+        # amount 成交额
+        # turn 换手率
+
+    2、结果不稳定 =》 多次训练。
+
+    
+"""
+
 from genericpath import exists
 import os
 import numpy as np
@@ -54,6 +65,7 @@ def predict():
     # model = tf.saved_model.load('saved_model/')
     xi = tf.convert_to_tensor(x[[-1]], tf.float32, name='inputs')
     predictions = model(xi)
+    print(type(predictions))
     score = tf.nn.softmax(predictions[0])
     class_names = {
         0: "持平",
@@ -65,54 +77,61 @@ def predict():
         "Stock {} most likely {} with a {:.2f} percent confidence."
         .format(stock_code, class_names[np.argmax(score)], 100 * np.max(score))
     )
-    with open("predict_output.csv", 'a') as f:
+    with open("predict_output.csv", 'a', newline='') as f:
         wri = csv.writer(f)
-        wri.writerow([stock_code, to_date, stock['close'].values[-1], class_names[np.argmax(score)], 100 * np.max(score)])
+        wri.writerow([stock_code, stock['date'].values[-1], stock['close'].values[-1], class_names[np.argmax(score)], 100 * np.max(score)])
 
 
 
 if __name__ == '__main__':
 
-
+    verify_period = 20      # 验证周期，自然日
     now = datetime.datetime.now()
-    now = now - datetime.timedelta(days=0)
+    now = now - datetime.timedelta(days=verify_period)
 
     stock_code_list = pd.read_csv('stock_codes.csv')['code']
 
     with open("predict_output.csv", 'w') as f:
         wri = csv.writer(f)
 
-    for i in range(30):
-        if i != 0 and datetime.datetime.weekday(now + datetime.timedelta(days=i)) in [6, 7]:
-            continue
-        to_date = (now + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
-        # to_date = '2021-04-18'          # 今日日期
-        re_download = True              # 重新下载
-        re_train = True                # 是否训练
-        predict_period = 20             # 预测天数
-        history_period = 400            # 分析天数
-        epoch = 200
+    
+    to_date = datetime.datetime.now().strftime("%Y-%m-%d")      # 今日日期       
+    re_download = True              # 重新下载
+    re_train = True                 # 是否训练
+    predict_period = 20             # 预测天数
+    history_period = 400            # 分析天数
+    epoch = 200
+    start_date = '2010-01-01'       # 最早数据
 
-        start_date = '2010-01-01'
-            # 从股票宝下载
-        bs.login()
-        print("数据下载")
-        for stock_code in tqdm(stock_code_list):
-            stock_info_path = "stock_info/" + stock_code + ".csv"
-            if not os.path.exists(stock_info_path) or re_download:
-                rs = bs.query_history_k_data(stock_code, "date, code, open, high, low, close, preclose, volume, amount, adjustflag, turn", start_date=start_date, end_date=to_date, frequency="d", adjustflag="3")
-                data_list = []
-                while (rs.error_code == '0') & rs.next():  # 获取一条记录，将记录合并在一起
-                    data_list.append(rs.get_row_data())
-                result = pd.DataFrame(data_list, columns=rs.fields)
-                result.to_csv(stock_info_path, index=False)
-        bs.logout()
+    # 从股票宝下载
+    bs.login()
+    print("数据下载")
+    for stock_code in tqdm(stock_code_list):
+        stock_info_path = "stock_info/" + stock_code + ".csv"
+        if not os.path.exists(stock_info_path) or re_download:
+            rs = bs.query_history_k_data(stock_code, "date, open, close, volume, amount, turn", start_date=start_date, end_date=to_date, frequency="d", adjustflag="3")
+            # volume 成交量
+            # amount 成交额
+            # turn 换手率
 
-        print("预测")
+            data_list = []
+            while (rs.error_code == '0') & rs.next():  # 获取一条记录，将记录合并在一起
+                data_list.append(rs.get_row_data())
+            result = pd.DataFrame(data_list, columns=rs.fields)
+            result.to_csv(stock_info_path, index=False)
+    bs.logout()
+
+    # 预测
+    for i in range(verify_period, -1, -1):
         for stock_code in tqdm(stock_code_list):
-            stock_info_path = "stock_info/" + stock_code + ".csv"
+            stock_info_path = "stock_info/" + stock_code + ".csv"       # 文件路径
             # 读取csv文件
-            stock = pd.read_csv(stock_info_path)
+            stock = pd.read_csv(stock_info_path, parse_dates=['date'])
+            
+            if i == 0:
+                pass
+            else:
+                stock = stock[:-i]
 
             # 准备数据
             stock['close_nomalized'] = (stock['close']-stock['close'].min())/(stock['close'].max()-stock['close'].min())
@@ -134,17 +153,18 @@ if __name__ == '__main__':
             print(pd.DataFrame(y)[0].value_counts())
             
             try:
-                x_train, x_test, y_train, y_test = train_test_split(x, y,test_size=0.2,shuffle=True)
-
-                if re_train:
-                    train()
-
-                predict()
+                t = 10
+                while t > 0:
+                    x_train, x_test, y_train, y_test = train_test_split(x, y,test_size=0.2,shuffle=True)
+                    if re_train:
+                        train()
+                    predict()
+                    t -= 1
 
             except Exception as e:
                 with open("predict_output.csv", 'a') as f:
                     wri = csv.writer(f)
-                    wri.writerow([stock_code, e])
+                    wri.writerow([stock_code, e, e.__traceback__.tb_lineno])
 
         
 
