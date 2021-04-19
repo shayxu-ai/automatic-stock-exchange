@@ -21,3 +21,4 @@ node_modules/*
 
 # 不上传股票数据
 *.csv
+saved_model.h5

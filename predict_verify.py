@@ -75,20 +75,20 @@ if __name__ == '__main__':
 
 
     now = datetime.datetime.now()
-    now = now - datetime.timedelta(days=90)
+    now = now - datetime.timedelta(days=0)
 
     stock_code_list = pd.read_csv('stock_codes.csv')['code']
 
     with open("predict_output.csv", 'w') as f:
         wri = csv.writer(f)
 
-    for i in range(90):
+    for i in range(1):
         if i != 0 and datetime.datetime.weekday(now + datetime.timedelta(days=i)) in [6, 7]:
             continue
         to_date = (now + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
         # to_date = '2021-04-18'          # 今日日期
         re_download = True              # 重新下载
-        re_train = False                # 是否训练
+        re_train = True                # 是否训练
         predict_period = 20             # 预测天数
         history_period = 400            # 分析天数
         epoch = 200
