@@ -24,16 +24,19 @@
     5、模型量化
 """
 
-from genericpath import exists
+
 import os
+
+import datetime
+from tqdm import tqdm
+
+import csv
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-import csv
-import datetime
-
-import baostock as bs
 import matplotlib. pyplot as plt 
+
+import baostock as bs   # 股票宝，获取股票数据
+
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow import keras
