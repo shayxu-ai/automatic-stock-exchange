@@ -75,7 +75,11 @@ def preprocess():
 
     # 准备数据
     stock['close_nomalized'] = (stock['close']-stock['close'].min())/(stock['close'].max()-stock['close'].min())        # 收盘价 归一化
+    stock['volume_nomalized'] = (stock['volume']-stock['volume'].min())/(stock['volume'].max()-stock['volume'].min())   # 交易量 归一化
+    stock['avg_price'] = stock['close'].rolling(predict_period).mean()                                                  # 最近周期内的平均股价
+    stock = stock[predict_period-1:]
     stock['future_price'] = stock['close'].rolling(predict_period).mean().shift(-predict_period)                        # 未来股价均值(不包含当日收盘价)
+    # stock = stock.dropna(axis=0)                                                                                        # 去除空值
 
     def flat_or_not(x):
         if x >= threshold_flat:
@@ -85,15 +89,15 @@ def preprocess():
         else:
             return 0       # 持平
 
-    stock['label'] = ((stock['future_price'] - stock['close']) / stock['close']).apply(flat_or_not)
+    stock['label'] = ((stock['future_price'] - stock['avg_price']) / stock['avg_price']).apply(flat_or_not)
 
     n = len(stock)
 
     if not cnn_3d_flag:
-        x = np.array([stock['close_nomalized'][i:i+history_period] for i in range(n-history_period-predict_period+1)]).reshape(-1, 20, 20) # 输入 400天
+        x = np.array([stock['close_nomalized'][i:i+history_period] for i in range(n-history_period-predict_period+1)]).reshape(-1, 20, 20) # 输入 400天 （0:400）~（n-400-predict~n）
         x = x[:, :, :, np.newaxis]
     else:
-        x = np.array([stock[['close_nomalized', 'turn']][i:i+history_period] for i in range(n-history_period-predict_period+1)]).reshape(-1, 20, 20, 2) # 输入 400天 + 转手率
+        x = np.array([stock[['close_nomalized', 'volume_nomalized']][i:i+history_period] for i in range(n-history_period-predict_period+1)]).reshape(-1, 20, 20, 2) # 输入 400天 + 交易量
         x = x[:, :, :, :, np.newaxis]
 
     y = stock['label'][history_period-1:].values[:-predict_period]                                               # 标签 
@@ -165,7 +169,11 @@ def predict():
         .format(stock_code, class_names[np.argmax(score)], 100 * np.max(score))
     )
     with open("predict_output.csv", 'a', newline='') as f:
-        csv.writer(f).writerow([stock_code, stock['date'].values[-1], stock['close'].values[-1], class_names[np.argmax(score)], 100 * np.max(score)])
+        tmp = list(stock.loc[-1])
+        for item in [class_names[np.argmax(score)], 100 * np.max(score)]:
+            tmp.append(item)
+        csv.writer(f).writerow(tmp)
+    return [stock['close'].values[-1], np.argmax(score)]
 
 
 
@@ -176,9 +184,9 @@ if __name__ == '__main__':
 
     # 一些超参
     to_date = datetime.datetime.now().strftime("%Y-%m-%d")      # 今日日期       
-    re_download = True              # 重新下载数据
-    re_train = True                 # 重新训练
-    predict_period = 15             # 预测天数
+    re_download = False              # 重新下载数据
+    re_train = False                 # 重新训练
+    predict_period = 6             # 预测天数
     history_period = 400            # 分析天数
     epoch = 200
     start_date = '2010-01-01'       # 最早数据
@@ -186,7 +194,14 @@ if __name__ == '__main__':
     stock_code_list = pd.read_csv('stock_codes.csv')['code']    # 获取需要预测的股票代码
 
     # 一些设置
-    verify_period = 2              # 验证周期
+    verify_period = 90              # 验证周期
+    simulation = {
+        'bought': False,
+        'price': 0,
+        'asset': 1
+
+    }
+
     cnn_3d_flag = True
 
     download()
@@ -205,13 +220,21 @@ if __name__ == '__main__':
                             train()
                         else:
                             train_3d()
-                    predict()
+                    close, trend = predict()
+                    if not simulation['bought'] and trend == 1:
+                        simulation['bought'] = True
+                        simulation['price'] = close
+                    elif simulation['bought'] and trend == 2:
+                        simulation['bought'] = False
+                        simulation['asset'] = simulation['asset']/simulation['price']*close
                     t -= 1
 
             except Exception as e:
                 with open("predict_output.csv", 'a') as f:
                     wri = csv.writer(f)
                     wri.writerow([stock_code, e, e.__traceback__.tb_lineno])
+            
+            print(simulation['asset'])
 
         
 
