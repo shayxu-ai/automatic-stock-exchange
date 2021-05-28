@@ -23,7 +23,7 @@ set_date = ""         # 设置日期
 # 计算日期
 if not set_date:
     now = datetime.datetime.now()
-    if now.hour <= 15:
+    if now.hour <= 17 and now.minute <= 30:
         now -= datetime.timedelta(days=1)
 else:
     now = datetime.datetime.strptime(set_date, '%Y-%m-%d')
