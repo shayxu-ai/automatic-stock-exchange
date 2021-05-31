@@ -42,7 +42,7 @@ if lg.error_code != '0':
 data_list = []
 stock_rs = bs.query_all_stock(end_date)     # 查询全量股票，含指数
 stock_df  = stock_rs.get_data()
-stock_df  =  stock_df [stock_df ['tradeStatus'] == '1'].reset_index(drop =  True)
+stock_df  =  stock_df[stock_df ['tradeStatus'] == '1'][~stock_df['code_name'].str.contains('ST')].reset_index(drop =  True)
 
 data_df = pd.DataFrame()
 variance = []       # 计算方差。
@@ -58,9 +58,12 @@ for row in tqdm(stock_df.itertuples()):
         # print(code, pct_chg)
         k_rs = bs.query_history_k_data_plus(code, "close", start_date, end_date)
         data_df = k_rs.get_data()
-        var_tmp = data_df['close'].rolling(mean_days).mean().dropna().var()
-        close = float(data_df['close'].iloc[-1])
-        variance.append([code, code_name, end_date, pct_chg, var_tmp, close])
+        if  len(data_df) > 60:
+            mean_df = data_df['close'].rolling(mean_days).mean()
+            var_tmp = mean_df.dropna().var()
+            close = float(data_df['close'].iloc[-1])
+            if mean_df.iloc[-1] >= mean_df.iloc[-2]:
+                variance.append([code, code_name, end_date, pct_chg, var_tmp, close])
         
 bs.logout()
 result = pd.DataFrame(variance, columns=['code', 'code_name', 'date', 'pct_chg', 'var', 'close'])
